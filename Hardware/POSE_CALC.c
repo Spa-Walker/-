@@ -85,7 +85,7 @@ void mahony_update(float gx, float gy, float gz, float ax, float ay, float az)
     float vx, vy, vz;
     float ex, ey, ez;
     
-    static float pitch_old=0, roll_old=0,yaw_old=0;
+    static float pitch_old=0, yaw_old=0;
     float temp = 0;
  
     if(ax*ay*az==0)
@@ -99,23 +99,9 @@ void mahony_update(float gx, float gy, float gz, float ax, float ay, float az)
     ay = ay * norm;
     az = az * norm;
  
-    //VectorA = MatrixC * VectorB
-    //VectorA ：参考重力向量转到在机体下的值
-    //MatrixC ：地理坐标系转机体坐标系的旋转矩阵
-    //VectorB ：参考重力向量（0,0,1）
-    //[vx,vy,vz]是地理坐标系重力分向量[0,0,1]经过DCM旋转矩阵(C(n->b))计算得到的机体坐标系中的重力向量(竖直向下)
- 
     vx = Mat.DCM_T[0][2];
     vy = Mat.DCM_T[1][2];
     vz = Mat.DCM_T[2][2];
- 
-    //机体坐标系下向量叉乘得到误差向量，误差e就是测量得到的vˉ和预测得到的 v^之间的相对旋转。这里的vˉ就是[ax,ay,az]’,v^就是[vx,vy,vz]’
-    //利用这个误差来修正DCM方向余弦矩阵(修正DCM矩阵中的四元素)，这个矩阵的作用就是将b系和n正确的转化直到重合。
-    //实际上这种修正方法只把b系和n系的XOY平面重合起来，对于z轴旋转的偏航，加速度计无可奈何，
-    //但是，由于加速度计无法感知z轴上的旋转运动，所以还需要用地磁计来进一步补偿。
-    //两个向量的叉积得到的结果是两个向量的模与他们之间夹角正弦的乘积a×v=|a||v|sinθ,
-    //加速度计测量得到的重力向量和预测得到的机体重力向量已经经过单位化，因而他们的模是1，
-    //也就是说它们向量的叉积结果仅与sinθ有关，当角度很小时，叉积结果可以近似于角度成正比。
  
     ex = ay*vz - az*vy;
     ey = az*vx - ax*vz;
@@ -255,23 +241,6 @@ void IMU(void)
         gyro_z =iir_lpf(mpu6050_gyro_z,gyro_z,imu.att_gyro_factor);
         //printf("%d,%d,%d\n",gyro_x,gyro_y,gyro_z);
  
-        //=================重力补偿版
-        /*acc_x = (float)mpu6050_acc_x * Acc_Gain * G;
-        acc_y = (float)mpu6050_acc_y * Acc_Gain * G;
-        acc_z = (float)mpu6050_acc_z * Acc_Gain * G;
-        gyro_x = (float)mpu6050_gyro_x * Gyro_Gain;
-        gyro_y = (float)mpu6050_gyro_y * Gyro_Gain;
-        gyro_z = (float)mpu6050_gyro_z * Gyro_Gain;
-        //-----------------IIR滤波
-        acc_x = acc_x*Kp_New + acc_x_old *Kp_Old;
-        acc_y = acc_y*Kp_New + acc_y_old *Kp_Old;
-        acc_z = acc_z*Kp_New + acc_z_old *Kp_Old;
-        acc_x_old = acc_x;
-        acc_y_old = acc_y;
-        acc_z_old = acc_z;
-        IMUupdate(acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z,&imu);*/
-        //===============================
- 
         /*数据存储*/
         imu.acc_g.x = (float)acc_x/4096; //加速度计量程为:±8g/4096, ±16g/2048, ±4g/8192, ±2g/16384 
         imu.acc_g.y = (float)acc_y/4096;
@@ -279,11 +248,6 @@ void IMU(void)
         imu.deg_s.x = (float)mpu6050_gyro_x/16.4f;//陀螺仪量程为:±2000dps/16.4, ±1000dps/32.8, ±500 dps /65.6
         imu.deg_s.y = (float)mpu6050_gyro_y/16.4f;//±250 dps/131.2, ±125 dps/262.4
         imu.deg_s.z = (float)mpu6050_gyro_z/16.4f;
- 
-        //卡尔曼姿态解算
-        //imu.roll = -Kalman_Filter_x(imu.acc_g.x,imu.deg_s.x);
-        //imu.pitch = -Kalman_Filter_y(imu.acc_g.y,imu.deg_s.y);
-        //imu.yaw = -Kalman_Filter_x(imu.acc_g.z,imu.deg_s.z);
  
         /*姿态解算*/
         mahony_update(imu.deg_s.x,imu.deg_s.y,imu.deg_s.z,imu.acc_g.x,imu.acc_g.y,imu.acc_g.z);
